@@ -10,6 +10,9 @@ export default function DriverSignup() {
     name: "",
     phone: "",
     email: "",
+    city: "",
+    vehicleType: "",
+    vehicleYear: "",
     vehicleOption: "Tengo vehículo propio (2013 en adelante) y ya cuento con licencia de conducir.",
   });
 
@@ -29,6 +32,9 @@ export default function DriverSignup() {
           nombre: formData.name,
           telefono: formData.phone,
           email: formData.email,
+          ciudad: formData.city,
+          tipoVehiculo: formData.vehicleType,
+          anoVehiculo: formData.vehicleYear,
           experiencia: formData.vehicleOption,
         }),
       });
@@ -44,10 +50,17 @@ export default function DriverSignup() {
         name: "",
         phone: "",
         email: "",
+        city: "",
+        vehicleType: "",
+        vehicleYear: "",
         vehicleOption: "Tengo vehículo propio (2013 en adelante) y ya cuento con licencia de conducir.",
       });
-    } catch (err: any) {
-      setErrorMsg(err.message || "Error al conectar con el servidor. Inténtalo de nuevo.");
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Error al conectar con el servidor. Inténtalo de nuevo."
+      );
     } finally {
       setLoading(false);
     }
@@ -142,6 +155,63 @@ export default function DriverSignup() {
                     placeholder="tuemail@ejemplo.com"
                     className="w-full px-4 py-3.5 bg-[#1d2127] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:border-transparent transition"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="driver-city"
+                      className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5"
+                    >
+                      Ciudad / Zona
+                    </label>
+                    <input
+                      type="text"
+                      id="driver-city"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="ej. Dallas"
+                      autoComplete="address-level2"
+                      className="w-full px-4 py-3.5 bg-[#1d2127] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:border-transparent transition"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="driver-vehicle-type"
+                      className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5"
+                    >
+                      Tipo de Vehículo
+                    </label>
+                    <input
+                      type="text"
+                      id="driver-vehicle-type"
+                      value={formData.vehicleType}
+                      onChange={(e) => setFormData({ ...formData, vehicleType: e.target.value })}
+                      placeholder="ej. Sedán, SUV"
+                      className="w-full px-4 py-3.5 bg-[#1d2127] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:border-transparent transition"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="driver-vehicle-year"
+                      className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5"
+                    >
+                      Año del Vehículo
+                    </label>
+                    <input
+                      type="number"
+                      id="driver-vehicle-year"
+                      min="1900"
+                      max={new Date().getFullYear()}
+                      step="1"
+                      value={formData.vehicleYear}
+                      onChange={(e) => setFormData({ ...formData, vehicleYear: e.target.value })}
+                      placeholder="ej. 2020"
+                      className="w-full px-4 py-3.5 bg-[#1d2127] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:border-transparent transition"
+                    />
+                  </div>
                 </div>
 
                 <div>

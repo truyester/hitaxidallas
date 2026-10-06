@@ -1,26 +1,80 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: var(--font-inter), sans-serif;
+  --font-handwriting: var(--font-caveat), cursive;
+  --font-display: var(--font-montserrat), sans-serif;
+
+  /* Colores de Marca Hi! Taxi */
+  --color-brand-yellow: #fabd0d;
+  --color-brand-yellow-bright: #ffd98b;
+  --color-brand-yellow-hover: #f5b800;
+  --color-brand-dark-bg: #0b0e12;
+  --color-brand-surface: #111418;
+  --color-brand-card: #191c20;
+  --color-brand-card-hover: #22272e;
+  --color-brand-border: #2e3239;
+  --color-brand-whatsapp: #25D366;
+  --color-brand-whatsapp-hover: #20BD5A;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0b0e12;
+  --foreground: #e1e2e8;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Utilidades Gráficas de Fondo */
+.map-grid-bg {
+  background-image: radial-gradient(circle at 50% 20%, rgba(250, 189, 13, 0.08) 0%, transparent 60%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+}
+
+.hero-glow {
+  background: radial-gradient(circle at 65% 45%, rgba(245, 184, 0, 0.15) 0%, rgba(17, 20, 24, 0) 70%);
+}
+
+.hero-script-wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  transform: rotate(-2deg);
+}
+
+.hero-script {
+  font-family: var(--font-caveat), cursive;
+  font-weight: 700;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+  color: #facc3d;
+  text-shadow: 0 0 18px rgba(250, 189, 13, 0.18), 0 4px 0 rgba(110, 78, 0, 0.12);
+}
+
+.hero-script-main {
+  font-size: clamp(3.2rem, 5.2vw, 6.5rem);
+  margin-bottom: -0.15em;
+}
+
+.hero-script-sub {
+  font-size: clamp(2.25rem, 4vw, 4.2rem);
+  font-style: italic;
+  color: rgba(255, 223, 128, 0.96);
+}
+
+.hero-script-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+  background: #facc3d;
+  box-shadow: 0 0 15px rgba(250, 189, 13, 0.75);
+  margin-left: 0.5rem;
+  transform: translateY(-0.2rem);
 }

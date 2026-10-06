@@ -1,0 +1,22 @@
+<svg 
+  xmlns="http://www.w3.org/2000/svg" 
+  viewBox="0 0 100 100" 
+  width="24" 
+  height="24"
+  fill="#FABD0D"
+>
+  <!-- Círculo Superior Izquierdo (Grande) -->
+  <circle cx="36" cy="24" r="24" />
+  
+  <!-- Círculo Inferior Derecho (Grande) -->
+  <circle cx="75" cy="65" r="25" />
+  
+  <!-- Círculo Superior Derecho (Mediano) -->
+  <circle cx="78" cy="21" r="11" />
+  
+  <!-- Círculo Medio Izquierdo (Pequeño) -->
+  <circle cx="10" cy="57" r="10" />
+  
+  <!-- Círculo Inferior Central (Mediano) -->
+  <circle cx="34" cy="85" r="15" />
+</svg>

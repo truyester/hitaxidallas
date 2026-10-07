@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextResponse } from "next/server";
 
 // Helper para obtener coordenadas (lat, lon) de una dirección usando Nominatim

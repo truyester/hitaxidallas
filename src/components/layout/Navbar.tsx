@@ -8,7 +8,7 @@ export default function Navbar() {
         {/* Logo */}
         <Link href="#" className="flex shrink-0 items-center gap-1.5 md:gap-3 group">
           <Image
-            src="/icons/logo%20hi.svg"
+            src="/icons/logo-hi.svg"
             alt="HI TAXI"
             width={64}
             height={64}

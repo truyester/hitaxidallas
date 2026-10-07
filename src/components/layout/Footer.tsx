@@ -10,7 +10,7 @@ export default function Footer() {
           <div className="flex min-w-0 flex-col items-center gap-4 text-center sm:col-span-2 sm:flex-row sm:justify-center sm:text-left lg:col-span-1 lg:justify-start">
             <div className="flex items-center gap-3">
               <Image
-                src="/icons/logo%20hi.svg"
+                src="/icons/logo-hi.svg"
                 alt="HI TAXI"
                 width={40}
                 height={40}

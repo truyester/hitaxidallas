@@ -11,7 +11,7 @@ export default function Hero() {
         priority
         sizes="(max-width: 767px) 300vw, 100vw"
         quality={90}
-        className="absolute inset-0 z-0 object-cover object-center brightness-110 contrast-110"
+        className="absolute inset-0 z-0 object-cover object-[60%_center] brightness-110 contrast-110 md:object-center"
       />
       <div className="absolute inset-0 z-0 bg-[linear-gradient(90deg,rgba(11,14,18,0.72)_0%,rgba(11,14,18,0.55)_42%,rgba(11,14,18,0.35)_100%)]" />
       <div className="hero-glow absolute inset-0 z-0 pointer-events-none" />
@@ -150,7 +150,7 @@ export default function Hero() {
             <span className="text-gray-600">/</span>
             <span className="text-gray-300">CENTRO</span>
             <span className="text-gray-600">/</span>
-            <span className="text-gray-300">TODA DALLAS</span>
+            <span className="text-gray-300">TODO DALLAS</span>
           </div>
         </div>
 

@@ -9,7 +9,6 @@ export default function DriverSignup() {
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
-    email: "",
     city: "",
     vehicleType: "",
     vehicleYear: "",
@@ -31,7 +30,6 @@ export default function DriverSignup() {
         body: JSON.stringify({
           nombre: formData.name,
           telefono: formData.phone,
-          email: formData.email,
           ciudad: formData.city,
           tipoVehiculo: formData.vehicleType,
           anoVehiculo: formData.vehicleYear,
@@ -49,7 +47,6 @@ export default function DriverSignup() {
       setFormData({
         name: "",
         phone: "",
-        email: "",
         city: "",
         vehicleType: "",
         vehicleYear: "",
@@ -135,24 +132,6 @@ export default function DriverSignup() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="(214) 555-0192"
-                    className="w-full px-4 py-3.5 bg-[#1d2127] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:border-transparent transition"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="driver-email"
-                    className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1.5"
-                  >
-                    Correo Electrónico
-                  </label>
-                  <input
-                    type="email"
-                    id="driver-email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="tuemail@ejemplo.com"
                     className="w-full px-4 py-3.5 bg-[#1d2127] border border-white/10 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-yellow focus:border-transparent transition"
                   />
                 </div>

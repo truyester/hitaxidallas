@@ -49,9 +49,9 @@ export async function POST(req: Request) {
       comentarios,
     } = body;
 
-    if (!nombre || !telefono || !email) {
+    if (!nombre || !telefono) {
       return NextResponse.json(
-        { error: "Faltan campos obligatorios (Nombre, Teléfono o Email)" },
+        { error: "Faltan campos obligatorios (Nombre o Teléfono)" },
         { status: 400 }
       );
     }
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     const nombreHtml = escapeHtml(nombre);
     const apellidoHtml = escapeHtml(apellido || "");
     const telefonoHtml = escapeHtml(telefono);
-    const emailHtml = escapeHtml(email);
+    const emailHtml = typeof email === "string" ? escapeHtml(email) : "";
     const ciudadHtml = escapeHtml(ciudad || "No especificada");
     const tipoVehiculoHtml = escapeHtml(tipoVehiculo || "No especificado");
     const anoVehiculoHtml = escapeHtml(anoVehiculo || "N/A");
@@ -71,7 +71,9 @@ export async function POST(req: Request) {
     const data = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || "HI TAXI Drivers <onboarding@resend.dev>",
       to: [recipientEmail],
-      replyTo: email,
+      ...(typeof email === "string" && email.trim()
+        ? { replyTo: email.trim() }
+        : {}),
       subject: `🚖 Nueva Solicitud de Conductor: ${String(nombre).replace(/[\r\n]/g, " ")} ${String(apellido || "").replace(/[\r\n]/g, " ")}`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -92,10 +94,16 @@ export async function POST(req: Request) {
                   <a href="tel:${telefonoHtml}" style="color: #FABD0D; font-weight: bold;">${telefonoHtml}</a>
                 </td>
               </tr>
+              ${
+                emailHtml
+                  ? `
               <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Correo Electrónico:</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${emailHtml}</td>
               </tr>
+              `
+                  : ""
+              }
               <tr>
                 <td style="padding: 8px 0; border-bottom: 1px solid #eee; font-weight: bold;">Ciudad / Zona:</td>
                 <td style="padding: 8px 0; border-bottom: 1px solid #eee;">${ciudadHtml}</td>

@@ -2,126 +2,235 @@ export const runtime = 'edge';
 
 import { NextResponse } from "next/server";
 
-// Helper para obtener coordenadas (lat, lon) de una dirección usando Nominatim
-async function getCoordinates(address: string) {
-  try {
-    // Si la búsqueda no especifica estado o país, acotamos a la zona de Dallas, TX
-    const query = address.toLowerCase().includes("tx") || address.toLowerCase().includes("texas")
-      ? address
-      : `${address}, Dallas, TX`;
+class FareServiceError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "FareServiceError";
+  }
+}
 
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-    
-    const response = await fetch(url, {
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit & { next?: { revalidate: number } },
+  serviceName: string
+) {
+  const maxAttempts = 2;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+
+      if (response.ok) {
+        return response;
+      }
+
+      const canRetry =
+        response.status === 429 || response.status >= 500;
+      if (!canRetry) {
+        await response.body?.cancel();
+        throw new FareServiceError(
+          `${serviceName} respondió con un error (HTTP ${response.status}).`,
+          503
+        );
+      }
+
+      if (attempt === maxAttempts) {
+        await response.body?.cancel();
+        throw new FareServiceError(
+          `${serviceName} no está disponible temporalmente.`,
+          503
+        );
+      }
+
+      const retryAfterSeconds = Number(response.headers.get("retry-after"));
+      const retryDelay = Number.isFinite(retryAfterSeconds)
+        ? Math.min(Math.max(retryAfterSeconds * 1000, 1000), 10000)
+        : 1000;
+      await response.body?.cancel();
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      continue;
+    } catch (error) {
+      if (error instanceof FareServiceError) {
+        throw error;
+      }
+
+      if (attempt === maxAttempts) {
+        console.error(`${serviceName} falló tras ${maxAttempts} intentos:`, error);
+        throw new FareServiceError(
+          `${serviceName} no está disponible temporalmente.`,
+          503
+        );
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+
+  throw new FareServiceError(`${serviceName} no está disponible temporalmente.`, 503);
+}
+
+async function getCoordinates(address: string) {
+  const normalizedAddress = address.trim();
+  const lowerAddress = normalizedAddress.toLowerCase();
+  const isDfwAirport =
+    /\bdfw\b/.test(lowerAddress) &&
+    /(airport|aeropuerto|terminal)/.test(lowerAddress);
+  const isLoveFieldAirport = /love\s+field|love\s+airport|aeropuerto de love/.test(
+    lowerAddress
+  );
+  const query = isDfwAirport
+    ? "Dallas/Fort Worth International Airport"
+    : isLoveFieldAirport
+      ? "Dallas Love Field"
+      : lowerAddress.includes("tx") || lowerAddress.includes("texas")
+        ? normalizedAddress
+        : `${normalizedAddress}, Dallas, TX`;
+
+  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+  const response = await fetchWithRetry(
+    url,
+    {
       headers: {
         "User-Agent": "HiTaxiDallas/1.0 (contact@hitaxidallas.com)",
       },
-    });
+      next: { revalidate: 86400 },
+    },
+    "La búsqueda de direcciones"
+  );
 
-    if (!response.ok) return null;
-
-    const data = await response.json();
-    if (data && data.length > 0) {
-      return {
-        lat: parseFloat(data[0].lat),
-        lon: parseFloat(data[0].lon),
-      };
-    }
-  } catch (err) {
-    console.error("Error geocodificando con Nominatim:", err);
+  const data = await response.json();
+  if (!Array.isArray(data) || data.length === 0) {
+    return null;
   }
-  return null;
+
+  const lat = Number(data[0].lat);
+  const lon = Number(data[0].lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return null;
+  }
+
+  return { lat, lon };
 }
 
-// Helper para calcular distancia (en millas) y tiempo (en minutos) usando OSRM
-async function getRouteData(start: { lat: number; lon: number }, end: { lat: number; lon: number }) {
-  try {
-    const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false`;
-    const response = await fetch(url);
-    
-    if (!response.ok) return null;
+async function getRouteData(
+  start: { lat: number; lon: number },
+  end: { lat: number; lon: number }
+) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false`;
+  const response = await fetchWithRetry(
+    url,
+    { next: { revalidate: 43200 } },
+    "El cálculo de rutas"
+  );
 
-    const data = await response.json();
-    if (data.routes && data.routes.length > 0) {
-      const distanceMeters = data.routes[0].distance;
-      const durationSeconds = data.routes[0].duration;
-
-      return {
-        miles: distanceMeters / 1609.34, // Conversión de metros a millas
-        trafficMins: Math.round(durationSeconds / 60), // Conversión de segundos a minutos
-      };
-    }
-  } catch (err) {
-    console.error("Error calculando ruta con OSRM:", err);
+  const data = await response.json();
+  if (
+    data.code !== "Ok" ||
+    !Array.isArray(data.routes) ||
+    data.routes.length === 0
+  ) {
+    return null;
   }
-  return null;
+
+  const distanceMeters = Number(data.routes[0].distance);
+  const durationSeconds = Number(data.routes[0].duration);
+  if (
+    !Number.isFinite(distanceMeters) ||
+    distanceMeters <= 0 ||
+    !Number.isFinite(durationSeconds) ||
+    durationSeconds < 0
+  ) {
+    return null;
+  }
+
+  return {
+    miles: distanceMeters / 1609.34,
+    trafficMins: Math.round(durationSeconds / 60),
+  };
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { pickup, destination, vehicle } = body;
+    const { pickup, destination } = body;
 
-    if (!pickup || !destination) {
+    if (
+      typeof pickup !== "string" ||
+      typeof destination !== "string" ||
+      !pickup.trim() ||
+      !destination.trim()
+    ) {
       return NextResponse.json(
         { error: "Origen y destino son requeridos" },
         { status: 400 }
       );
     }
 
-    const p = pickup.toLowerCase();
-    const d = destination.toLowerCase();
+    const p = pickup.trim().toLowerCase();
+    const d = destination.trim().toLowerCase();
+
+    // Validar si origen y destino son idénticos
+    if (p === d) {
+      return NextResponse.json(
+        { error: "El origen y el destino no pueden ser iguales" },
+        { status: 400 }
+      );
+    }
 
     // 1. Estándar de Tarifas HI TAXI
-    const BASE_INITIAL_FARE = 2.25;  // Tarifa inicial (bajada de bandera)
-    const RATE_PER_MILE = 2.50;      // $0.25 por cada 1/10 de milla = $2.50 por milla
-    const WAIT_RATE_PER_MIN = 0.40;   // $0.40 por cada minuto de espera / tráfico
-    const DFW_MINIMUM_FARE = 32.00;  // Tarifa mínima para servicio al Aeropuerto DFW
+    const BASE_INITIAL_FARE = 2.50;
+    const RATE_PER_MILE = 2.50;
+    const WAIT_RATE_PER_MIN = 0.40;
+    const DFW_MINIMUM_FARE = 32.00;
 
     const isDFW = p.includes("dfw") || d.includes("dfw");
-    const isLoveField = p.includes("love") || d.includes("love");
 
-    let estimatedMiles = 10;
-    let estimatedTrafficMins = 5;
-    let isRealRoute = false;
-
-    // 2. Intentar obtener la distancia real por carretera mediante OpenStreetMap (OSRM)
-    const [pickupCoords, destCoords] = await Promise.all([
-      getCoordinates(pickup),
-      getCoordinates(destination),
-    ]);
-
-    if (pickupCoords && destCoords) {
-      const routeData = await getRouteData(pickupCoords, destCoords);
-      if (routeData && routeData.miles > 0) {
-        estimatedMiles = parseFloat(routeData.miles.toFixed(1));
-        estimatedTrafficMins = routeData.trafficMins;
-        isRealRoute = true;
-      }
+    const pickupCoords = await getCoordinates(pickup);
+    if (!pickupCoords) {
+      return NextResponse.json(
+        { error: "No se encontró el origen. Prueba con una dirección más específica." },
+        { status: 422 }
+      );
     }
 
-    // Respaldos por defecto si no se pudo geocodificar la dirección exacta
-    if (!isRealRoute) {
-      if (isDFW) {
-        estimatedMiles = 15;
-        estimatedTrafficMins = 8;
-      } else if (isLoveField) {
-        estimatedMiles = 8;
-        estimatedTrafficMins = 4;
-      }
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    const destCoords = await getCoordinates(destination);
+    if (!destCoords) {
+      return NextResponse.json(
+        { error: "No se encontró el destino. Prueba con una dirección más específica." },
+        { status: 422 }
+      );
     }
 
-    // 3. Cálculo base según la fórmula oficial
-    let totalFare = BASE_INITIAL_FARE + (estimatedMiles * RATE_PER_MILE) + (estimatedTrafficMins * WAIT_RATE_PER_MIN);
-
-    // 4. Ajuste por Tipo de Vehículo
-    if (vehicle === "suv") {
-      totalFare *= 1.30; // 30% adicional por SUV
-    } else if (vehicle === "van") {
-      totalFare *= 1.50; // 50% adicional por Van
+    const routeData = await getRouteData(pickupCoords, destCoords);
+    if (!routeData) {
+      return NextResponse.json(
+        { error: "No se encontró una ruta entre esos lugares. Verifica las direcciones." },
+        { status: 422 }
+      );
     }
 
-    // 5. Aplicar Tarifa Mínima de Aeropuerto DFW ($32.00)
+    const estimatedMiles = parseFloat(routeData.miles.toFixed(1));
+    const estimatedTrafficMins = routeData.trafficMins;
+
+    // 3. Cálculo base
+    let totalFare =
+      BASE_INITIAL_FARE +
+      estimatedMiles * RATE_PER_MILE +
+      estimatedTrafficMins * WAIT_RATE_PER_MIN;
+
+    // 5. Aplicar Tarifa Mínima DFW
     if (isDFW && totalFare < DFW_MINIMUM_FARE) {
       totalFare = DFW_MINIMUM_FARE;
     }
@@ -135,13 +244,20 @@ export async function POST(request: Request) {
         estimatedMiles,
         estimatedTrafficMins,
         isDFW,
-        isRealRoute,
+        isRealRoute: true,
       },
       currency: "USD",
     });
 
   } catch (error) {
-    console.error("Error en /api/calculate-fare:", error);
+    if (error instanceof FareServiceError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status }
+      );
+    }
+
+    console.error("Error interno en /api/calculate-fare:", error);
     return NextResponse.json(
       { error: "Error interno al calcular la tarifa" },
       { status: 500 }

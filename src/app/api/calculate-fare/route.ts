@@ -33,8 +33,7 @@ async function fetchWithRetry(
         return response;
       }
 
-      const canRetry =
-        response.status === 429 || response.status >= 500;
+      const canRetry = response.status === 429 || response.status >= 500;
       if (!canRetry) {
         await response.body?.cancel();
         throw new FareServiceError(
@@ -80,78 +79,101 @@ async function fetchWithRetry(
   throw new FareServiceError(`${serviceName} no está disponible temporalmente.`, 503);
 }
 
-async function getCoordinates(address: string) {
+// Función auxiliar para mejorar la precisión de las direcciones antes de enviarlas a Google
+function formatAddressForGoogle(address: string) {
   const normalizedAddress = address.trim();
   const lowerAddress = normalizedAddress.toLowerCase();
+
   const isDfwAirport =
     /\bdfw\b/.test(lowerAddress) &&
     /(airport|aeropuerto|terminal)/.test(lowerAddress);
+
   const isLoveFieldAirport = /love\s+field|love\s+airport|aeropuerto de love/.test(
     lowerAddress
   );
-  const query = isDfwAirport
-    ? "Dallas/Fort Worth International Airport"
+
+  return isDfwAirport
+    ? "Dallas/Fort Worth International Airport, TX"
     : isLoveFieldAirport
-      ? "Dallas Love Field"
-      : lowerAddress.includes("tx") || lowerAddress.includes("texas")
-        ? normalizedAddress
-        : `${normalizedAddress}, Dallas, TX`;
-
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
-  const response = await fetchWithRetry(
-    url,
-    {
-      headers: {
-        "User-Agent": "HiTaxiDallas/1.0 (contact@hitaxidallas.com)",
-      },
-      next: { revalidate: 86400 },
-    },
-    "La búsqueda de direcciones"
-  );
-
-  const data = await response.json();
-  if (!Array.isArray(data) || data.length === 0) {
-    return null;
-  }
-
-  const lat = Number(data[0].lat);
-  const lon = Number(data[0].lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    return null;
-  }
-
-  return { lat, lon };
+    ? "Dallas Love Field, TX"
+    : lowerAddress.includes("tx") || lowerAddress.includes("texas")
+    ? normalizedAddress
+    : `${normalizedAddress}, Dallas, TX`;
 }
 
-async function getRouteData(
-  start: { lat: number; lon: number },
-  end: { lat: number; lon: number }
-) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${start.lon},${start.lat};${end.lon},${end.lat}?overview=false`;
-  const response = await fetchWithRetry(
-    url,
-    { next: { revalidate: 43200 } },
-    "El cálculo de rutas"
-  );
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
 
-  const data = await response.json();
-  if (
-    data.code !== "Ok" ||
-    !Array.isArray(data.routes) ||
-    data.routes.length === 0
-  ) {
+function parseGoogleDuration(value: unknown) {
+  if (typeof value !== "string") {
     return null;
   }
 
-  const distanceMeters = Number(data.routes[0].distance);
-  const durationSeconds = Number(data.routes[0].duration);
+  const match = /^(\d+(?:\.\d+)?)s$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : null;
+}
+
+// Routes API returns traffic-aware duration when TRAFFIC_AWARE_OPTIMAL is requested.
+async function getGoogleRouteData(pickup: string, destination: string, apiKey: string) {
+  const originStr = formatAddressForGoogle(pickup);
+  const destStr = formatAddressForGoogle(destination);
+
+  const response = await fetchWithRetry(
+    "https://routes.googleapis.com/directions/v2:computeRoutes",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": "routes.distanceMeters,routes.duration,routes.staticDuration",
+      },
+      body: JSON.stringify({
+        origin: { address: originStr },
+        destination: { address: destStr },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE_OPTIMAL",
+      }),
+      cache: "no-store",
+    },
+    "Google Routes API"
+  );
+
+  const data: unknown = await response.json();
+
+  if (!isRecord(data) || !Array.isArray(data.routes)) {
+    console.error("Google Routes API devolvió una respuesta inválida.");
+    throw new FareServiceError("El servicio de mapas devolvió una respuesta inválida.", 503);
+  }
+
+  if (data.routes.length === 0) {
+    return null;
+  }
+
+  const route = data.routes[0];
+  if (!isRecord(route)) {
+    console.error("Google Routes API devolvió una ruta inválida.");
+    throw new FareServiceError("El servicio de mapas devolvió una ruta inválida.", 503);
+  }
+
+  const distanceMeters = route.distanceMeters;
+  const durationSeconds =
+    parseGoogleDuration(route.duration) ??
+    parseGoogleDuration(route.staticDuration);
+
   if (
+    typeof distanceMeters !== "number" ||
     !Number.isFinite(distanceMeters) ||
     distanceMeters <= 0 ||
-    !Number.isFinite(durationSeconds) ||
-    durationSeconds < 0
+    durationSeconds === null
   ) {
-    return null;
+    console.error("Google Routes API devolvió distancia o duración inválida.");
+    throw new FareServiceError("El servicio de mapas devolvió datos de ruta inválidos.", 503);
   }
 
   return {
@@ -196,27 +218,22 @@ export async function POST(request: Request) {
 
     const isDFW = p.includes("dfw") || d.includes("dfw");
 
-    const pickupCoords = await getCoordinates(pickup);
-    if (!pickupCoords) {
+    // 2. Extraer la llave de Google desde las variables de entorno
+    const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+    if (!GOOGLE_MAPS_API_KEY) {
+      console.error("Falta la variable de entorno GOOGLE_MAPS_API_KEY");
       return NextResponse.json(
-        { error: "No se encontró el origen. Prueba con una dirección más específica." },
-        { status: 422 }
+        { error: "Error de configuración del servidor. Contacte al administrador." },
+        { status: 500 }
       );
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1100));
-    const destCoords = await getCoordinates(destination);
-    if (!destCoords) {
-      return NextResponse.json(
-        { error: "No se encontró el destino. Prueba con una dirección más específica." },
-        { status: 422 }
-      );
-    }
+    // 3. Obtener datos de la ruta con Google Maps
+    const routeData = await getGoogleRouteData(pickup, destination, GOOGLE_MAPS_API_KEY);
 
-    const routeData = await getRouteData(pickupCoords, destCoords);
     if (!routeData) {
       return NextResponse.json(
-        { error: "No se encontró una ruta entre esos lugares. Verifica las direcciones." },
+        { error: "No se encontró una ruta entre esos lugares o la dirección no es válida. Verifica e intenta nuevamente." },
         { status: 422 }
       );
     }
@@ -224,7 +241,7 @@ export async function POST(request: Request) {
     const estimatedMiles = parseFloat(routeData.miles.toFixed(1));
     const estimatedTrafficMins = routeData.trafficMins;
 
-    // 3. Cálculo base
+    // 4. Cálculo base
     let totalFare =
       BASE_INITIAL_FARE +
       estimatedMiles * RATE_PER_MILE +

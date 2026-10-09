@@ -56,7 +56,7 @@ export default function Hero() {
               </a>
 
               <a
-                href="https://wa.me/12148936969"
+                href="https://wa.me/12148936969?text=Hola%2C%20quiero%20solicitar%20un%20taxi%20%F0%9F%9A%95."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2.5 bg-[#25D366] hover:bg-[#20BD5A] text-black font-bold px-7 py-4 rounded-full text-base border border-black/10 hover:border-black/20 transition duration-200 shadow-md"

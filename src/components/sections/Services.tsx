@@ -42,7 +42,7 @@ export default function Services() {
         "Sedanes, minivans y SUVs ejecutivas disponibles",
       ],
       ctaText: "Reservar Taxi al Aeropuerto",
-      ctaHref: "https://wa.me/12148936969?text=Hola,%20deseo%20reservar%20un%20taxi%20al%20aeropuerto",
+      ctaHref: "https://wa.me/12148936969?text=Hola%2C%20quiero%20solicitar%20un%20taxi%20%F0%9F%9A%95.",
       isFeatured: true,
     },
     {
@@ -112,7 +112,7 @@ export default function Services() {
         "Soporte directo las 24 horas del día",
       ],
       ctaText: "Consultar Servicio Especial",
-      ctaHref: "https://wa.me/12148936969?text=Hola,%20necesito%20cotizar%20un%20servicio%20especial",
+      ctaHref: "https://wa.me/12148936969?text=Hola%2C%20quiero%20solicitar%20un%20taxi%20%F0%9F%9A%95.",
       isFeatured: false,
     },
   ];

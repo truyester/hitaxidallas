@@ -11,7 +11,7 @@ export default function FleetShowcase() {
         { icon: "🧳", text: "Equipaje: 2 Maletas Grandes + 2 de Mano" },
         { icon: "💳", text: "Pago: Efectivo, Tarjeta, Zelle" },
       ],
-      priceNote: "Bajada de bandera base: $2.25 | Tarifa local estándar",
+      priceNote: "Bajada de bandera base: $2.50 | Tarifa local estándar",
       isFeatured: false,
     },
     {
@@ -25,7 +25,7 @@ export default function FleetShowcase() {
         { icon: "🧳", text: "Equipaje: 4 Maletas Grandes" },
         { icon: "💳", text: "Pago: Efectivo, Tarjeta, Zelle" },
       ],
-      priceNote: "Bajada de bandera base: $2.25 | Tarifa local estándar",
+      priceNote: "Bajada de bandera base: $2.50 | Tarifa local estándar",
       isFeatured: true,
     },
     {
@@ -39,7 +39,7 @@ export default function FleetShowcase() {
         { icon: "🧳", text: "Equipaje: 4 Maletas Grandes" },
         { icon: "💳", text: "Pago: Efectivo, Tarjeta, Zelle" },
       ],
-      priceNote: "Bajada de bandera base: $2.25 | Tarifa local estándar",
+      priceNote: "Bajada de bandera base: $2.50 | Tarifa local estándar",
       isFeatured: false,
     },
   ];
